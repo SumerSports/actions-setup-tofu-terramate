@@ -1,0 +1,37 @@
+repos:
+  - repo: https://github.com/tofuutils/pre-commit-opentofu
+    rev: v2.1.0 # Get the latest from: https://github.com/tofuutils/pre-commit-opentofu/releases
+    hooks:
+      - id: tofu_fmt
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+      - id: end-of-file-fixer
+        name: Ensure newline at end of file
+        description: Ensure that files end with a newline
+      - id: check-yaml
+        name: Validate YAML
+        description: Ensures YAML is parseable and formatted correctly
+      - id: trailing-whitespace
+        name: Remove trailing whitespaces
+        description: Removes trailing whitespace
+      - id: no-commit-to-branch
+        name: Prevent commits to main branch
+        description: Stop accidental commits to main
+        args: ['--branch', 'main', '--branch', 'master']
+  - repo: local
+    hooks:
+      - id: terramate-fmt
+        name: Terramate format
+        description: Run terramate fmt to format Terramate-managed files
+        entry: terramate
+        args: [ "fmt" ]
+        language: system
+        pass_filenames: false
+      - id: terramate-generate
+        name: Terramate generate
+        description: Run terramate generate to ensure all tofu artifacts are generated
+        entry: terramate
+        args: [ "generate" ]
+        language: system
+        pass_filenames: false
