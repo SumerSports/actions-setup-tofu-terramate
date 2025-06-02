@@ -1,0 +1,12 @@
+{
+  "bump-minor-pre-major": false,
+  "bump-patch-for-minor-pre-major": false,
+  "draft": false,
+  "prerelease": false,
+  "packages": {
+    "path/to/pkg": {}
+  },
+  "seperate-pull-request": true,
+  "tag-separator": "-",
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json"
+}
