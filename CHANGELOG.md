@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/SumerSports/actions-setup-tofu-terramate/compare/v0.3.0...v0.4.0) (2025-06-02)
+
+
+### Features
+
+* Adding More Workflows ([645c508](https://github.com/SumerSports/actions-setup-tofu-terramate/commit/645c5088b9ec892a461e2bcb45abab46499ecfbf))
+
 ## [0.3.0](https://github.com/SumerSports/actions-setup-tofu-terramate/compare/v0.2.0...v0.3.0) (2025-06-02)
 
 
