@@ -1,0 +1,23 @@
+name: Release please workflow
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  packages: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      # https://github.com/googleapis/release-please-action
+      # https://github.com/googleapis/release-please/blob/main/docs/manifest-releaser.md
+      - uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

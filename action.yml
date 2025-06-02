@@ -1,0 +1,270 @@
+name: 'Tofu Runner Setup'
+description: 'Checkout code, install tenv, terramate, aws cli, and setup tofu'
+inputs:
+  aws-account-id:
+    description: 'aws account id'
+    default: ''
+    required: false
+  aws-cli-skip-install:
+    description: 'skip aws cli install'
+    required: false
+    default: 'false'
+  aws-region:
+    description: 'aws region'
+    required: false
+    default: 'us-east-1'
+  devops-token:
+    description: 'sumer devops github token'
+    required: true
+  downloads-dir:
+    description: 'downloads directory'
+    required: true
+  environment:
+    description: 'matrix environment'
+    default: ''
+    required: false
+  install-opa:
+    description: 'install opa'
+    required: false
+    default: 'true'
+  ssh-private-key:
+    description: 'infra ssh private key'
+    required: true
+  terramate-version:
+    description: 'terramate version'
+    default: ''
+    required: false
+  tenv-version:
+    description: 'tenv version'
+    default: ''
+    required: false
+  tofu-version:
+    description: 'tofu version'
+    default: ''
+    required: false
+
+env:
+  TENV_AUTO_INSTALL: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Echo Inputs
+      shell: bash
+      run: |
+        echo "aws-account-id=${{ inputs.aws-account-id }}"
+        echo "aws-region=${{ inputs.aws-region }}"
+        echo "terramate-version=${{ inputs.terramate-version }}"
+        echo "tenv-version=${{ inputs.tenv-version }}"
+        echo "tofu-version=${{ inputs.tofu-version }}"
+        echo "downloads-dir=${{ inputs.downloads-dir }}"
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        export DEBIAN_FRONTEND=noninteractive
+        sudo apt update
+        sudo apt install -y -qq \
+          ca-certificates \
+          curl \
+          unzip \
+          jq \
+          wget \
+          git \
+          openssh-client
+
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.head_ref }}
+        fetch-depth: 0
+
+    - name: Cache Terraform plugins
+      uses: actions/cache@v4
+      with:
+        path: .tf_plugin_cache_dir
+        key: ${{ runner.os }}-terraform-${{ hashFiles('**/.terraform.lock.hcl') }}
+        restore-keys: ${{ runner.os }}-terraform-
+
+    - uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{ inputs.ssh-private-key }}
+
+    - name: git auth
+      shell: bash
+      run: git config --global url."https://sumerdevops:$GH_TOKEN@github.com/".insteadOf "ssh://git@github.com/"
+      env:
+        GH_TOKEN: ${{ inputs.devops-token }}
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: sumerdevops
+        password: ${{ inputs.devops-token }}
+
+    - name: Prep Cache And Downloads
+      shell: bash
+      run: |
+        echo "DOWNLOADS_DIR=${{ inputs.downloads-dir }}"
+        echo "DOWNLOADS_DIR=${{ inputs.downloads-dir }}" >> $GITHUB_ENV
+        echo "ENVIRONMENT=${{ inputs.environment }}"
+        echo "ENVIRONMENT=${{ inputs.environment }}" >> $GITHUB_ENV
+        echo "TERRAMATE_VERSION=${{ inputs.terramate-version }}"
+        echo "TERRAMATE_VERSION=${{ inputs.terramate-version }}" >> $GITHUB_ENV
+        echo "TENV_VERSION=${{ inputs.tenv-version }}"
+        echo "TENV_VERSION=${{ inputs.tenv-version }}" >> $GITHUB_ENV
+        echo "TOFU_VERSION=${{ inputs.tofu-version }}"
+        echo "TOFU_VERSION=${{ inputs.tofu-version }}" >> $GITHUB_ENV
+
+        echo "mkdir -p ${{ inputs.downloads-dir }}"
+        mkdir -p ${{ inputs.downloads-dir }}
+
+    - name: Terramate Section
+      if: ${{ inputs.terramate-version != '' }}
+      shell: bash
+      run: |
+        echo "######## TERRAMATE CACHE ########"
+
+    - name: Cache Terramate
+      if: ${{ inputs.terramate-version != '' }}
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.DOWNLOADS_DIR }}/terramate_${{ env.TERRAMATE_VERSION }}_linux_amd64.deb
+        key: terramate-${{ env.TERRAMATE_VERSION }}
+
+    - name: TENV Section
+      if: ${{ inputs.tenv-version != '' }}
+      shell: bash
+      run: |
+        echo "######## TENV CACHE ########"
+
+    - name: Cache Tenv
+      if: ${{ inputs.tenv-version != '' }}
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.DOWNLOADS_DIR }}/tenv_v${{ env.TENV_VERSION }}_amd64.deb
+        key: tenv-${{ env.TENV_VERSION }}
+
+    - name: AWS Section
+      shell: bash
+      run: |
+        echo "######## AWS CLI CACHE ########"
+
+    - name: Cache AWS CLI
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.DOWNLOADS_DIR }}/aws
+        key: aws-${{ env.TENV_VERSION }}
+
+    - name: OpenTofu Section
+      if: ${{ inputs.tofu-version != '' }}
+      shell: bash
+      run: |
+        echo "######## OPEN TOFU CACHE ########"
+
+    - name: Cache OpenTofu
+      if: ${{ inputs.tofu-version != '' }}
+      uses: actions/cache@v4
+      with:
+        path: /home/runner/.tenv/
+        key: tofu-${{ env.TOFU_VERSION }}
+
+    - name: Check Cache
+      shell: bash
+      run: |
+        chmod -R 755 ${DOWNLOADS_DIR}
+        echo "Downloads directory..."
+        ls -al ${DOWNLOADS_DIR}
+
+        echo "Checking usr/bin..."
+        ls -al /usr/bin
+
+    - name: Install Terramate
+      if: ${{ inputs.terramate-version != '' }}
+      shell: bash
+      run: |
+        echo "######## INSTALL TERRAMATE ########"
+        FILE_PATH="${DOWNLOADS_DIR}/terramate_${TERRAMATE_VERSION}_linux_amd64.deb"
+        DOWNLOAD_URL="https://github.com/terramate-io/terramate/releases/download/v${TERRAMATE_VERSION}/terramate_${TERRAMATE_VERSION}_linux_amd64.deb"
+
+        echo "checking download directory..."
+        ls -al ${DOWNLOADS_DIR}
+
+        if [[ ! -f "$FILE_PATH" ]]; then
+          echo "File doesn't exist. Downloading..."
+          curl -O -L --output-dir ${DOWNLOADS_DIR} ${DOWNLOAD_URL}
+        fi
+
+        sudo dpkg -i ${FILE_PATH}
+
+    - name: Install tenv
+      if: ${{ inputs.tenv-version != '' }}
+      shell: bash
+      run: |
+        echo "######## INSTALL TENV ########"
+        FILE_PATH="${DOWNLOADS_DIR}/tenv_v${TENV_VERSION}_amd64.deb"
+        DOWNLOAD_URL="https://github.com/tofuutils/tenv/releases/download/v${TENV_VERSION}/tenv_v${TENV_VERSION}_amd64.deb"
+
+        echo "checking download directory..."
+        ls -al ${DOWNLOADS_DIR}
+
+        if [[ ! -f "$FILE_PATH" ]]; then
+          echo "File doesn't exist. Downloading..."
+          curl -O -L --output-dir ${DOWNLOADS_DIR} ${DOWNLOAD_URL}
+        fi
+
+        sudo dpkg -i ${FILE_PATH}
+        ls -al ${DOWNLOADS_DIR}
+        echo "tenv version: $(tenv --version)"
+        which tenv
+
+    - name: Install AWS CLI 2
+      if: ${{ inputs.aws-account-id != '' &&  inputs.aws-cli-skip-install == 'false' }}
+      shell: bash
+      run: |
+        echo "######## INSTALL AWS CLI ########"
+        FILE_PATH="${DOWNLOADS_DIR}/awscliv2.zip"
+        DOWNLOAD_URL="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+
+        echo "checking download directory..."
+        ls -al ${DOWNLOADS_DIR}
+
+        if [[ ! -f "${DOWNLOADS_DIR}/aws/install" ]]; then
+          echo "File doesn't exist. Downloading..."
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "${DOWNLOADS_DIR}/awscliv2.zip"
+          unzip ${DOWNLOADS_DIR}/awscliv2.zip -d ${DOWNLOADS_DIR}
+        fi
+
+        sudo ${DOWNLOADS_DIR}/aws/install
+
+    - name: Setup OpenTofu
+      if: ${{ inputs.tofu-version != '' }}
+      shell: bash
+      run: |
+        terramate script run setup-tofu
+        echo "which tofu: $(which tofu)"
+
+    - name: configure aws credentials
+      if: ${{ inputs.aws-account-id != '' }}
+      uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
+      with:
+        role-to-assume: arn:aws:iam::${{ inputs.aws-account-id }}:role/TerraformAdmin
+        aws-region: ${{ inputs.aws-region }}
+      env:
+        AWS_REGION: ${{ inputs.aws-region }}
+        AWS_ACCOUNT_ID: ${{ inputs.aws-account-id }}
+
+    - name: Verify AWS credentials
+      if: ${{ inputs.aws-account-id != '' }}
+      shell: bash
+      run: aws sts get-caller-identity
+
+    - name: Setup OPA
+      if: ${{ inputs.install-opa == 'true' }}
+      working-directory: ${{ env.WORKING_DIRECTORY }}
+      shell: bash
+      run: |
+        curl -L -o opa https://openpolicyagent.org/downloads/v1.0.0/opa_linux_amd64_static
+        sudo chmod +x opa
+        sudo mv opa /usr/local/bin/
