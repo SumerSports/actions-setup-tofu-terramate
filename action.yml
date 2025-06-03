@@ -60,7 +60,7 @@ runs:
       shell: bash
       run: |
         export DEBIAN_FRONTEND=noninteractive
-        sudo apt update
+        sudo apt-get update
         sudo apt install -y -qq \
           ca-certificates \
           curl \
