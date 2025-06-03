@@ -232,7 +232,8 @@ runs:
       if: ${{ inputs.tofu-version != '' }}
       shell: bash
       run: |
-        terramate script run setup-tofu
+        tenv tofu install ${{ inputs.tofu-version }}
+        tenv tofu use ${{ inputs.tofu-version }}
         echo "which tofu: $(which tofu)"
 
     - name: configure aws credentials
