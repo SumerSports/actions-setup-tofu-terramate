@@ -170,9 +170,6 @@ runs:
         echo "Downloads directory..."
         ls -al ${DOWNLOADS_DIR}
 
-        echo "Checking usr/bin..."
-        ls -al /usr/bin
-
     - name: Install Terramate
       if: ${{ inputs.terramate-version != '' }}
       shell: bash
